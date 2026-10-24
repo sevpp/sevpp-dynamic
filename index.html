@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SEVPP DYNAMIC | QR Review Management</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        sevpp: {
+                            primary: '#C8102E',
+                            deep: '#8B0A1F',
+                            charcoal: '#1A1A1A',
+                            soft: '#F5F5F5',
+                            gold: '#C9A24B'
+                        },
+                        status: {
+                            aktif: '#1E8E5A',
+                            belum: '#8A8184',
+                            nonaktif: '#D92D20'
+                        }
+                    },
+                    fontFamily: {
+                        heading: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        body: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F5F5F5; color: #1A1A1A; -webkit-font-smoothing: antialiased; }
+        h1, h2, h3, h4 { font-family: '"Plus Jakarta Sans"', sans-serif; letter-spacing: -0.01em; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        
+        /* Custom Inputs */
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #C8102E; box-shadow: 0 0 0 3px #FDECEE; }
+        
+        /* Scanner UI Tweaks */
+        #reader { border: none !important; border-radius: 12px; overflow: hidden; background: #000; width: 100%; max-width: 500px; margin: 0 auto; }
+        #reader video { object-fit: cover; }
+        #reader button { background-color: #FFFFFF; color: #1A1A1A; border: 1px solid #E6E6E6; padding: 10px 20px; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; margin: 8px; cursor: pointer; transition: all 0.2s; }
+        #reader button:hover { background-color: #F5F5F5; }
+        #reader__scan_region { background: #000; }
+        #reader__dashboard_section_csr span { color: white !important; }
+
+        /* Toast Animation */
+        @keyframes slideUp { from { transform: translate(-50%, 100%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        .toast-animate { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        /* Modals & Overlays */
+        .modal-overlay { background-color: rgba(26, 26, 26, 0.6); backdrop-filter: blur(4px); }
+        
+        /* Auth Screen Background */
+        .auth-bg {
+            background: linear-gradient(135deg, #8B0A1F 0%, #C8102E 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .auth-bg::before {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 60%);
+        }
+    </style>
+</head>
+<body class="overflow-hidden h-screen flex flex-col md:flex-row">
+
+    <!-- ================= VIEW: LOGIN ================= -->
+    <div id="view-login" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-50 hidden">
+        <div class="w-full max-w-4xl h-full md:h-[600px] bg-white md:rounded-2xl md:shadow-2xl overflow-hidden flex flex-col md:flex-row">
+            <div class="auth-bg flex-1 p-8 md:p-12 flex flex-col justify-center text-white text-center md:text-left">
+                <h1 class="font-heading font-bold text-3xl md:text-4xl mb-4 tracking-tight">SEVPP<span class="text-sevpp-gold">.</span> DYNAMIC</h1>
+                <p class="text-white/80 text-sm md:text-base max-w-sm mx-auto md:mx-0">
+                    Sistem manajemen cerdas untuk pelacakan, aktivasi, dan distribusi QR Code Review terintegrasi.
+                </p>
+                <div class="hidden md:flex flex-1 items-end pb-4">
+                    <p class="text-xs text-white/50">&copy; 2026 PT SEVPP Analisis Group.</p>
+                </div>
+            </div>
+            
+            <div class="flex-1 p-8 md:p-12 flex flex-col justify-center bg-white">
+                <div class="max-w-sm w-full mx-auto">
+                    <h2 class="font-heading font-bold text-2xl text-sevpp-charcoal mb-2">Selamat Datang</h2>
+                    <p class="text-sm text-gray-500 mb-8">Silakan masuk menggunakan kredensial admin Anda.</p>
+                    
+                    <form id="login-form" class="space-y-5">
+                        <div id="login-error" class="hidden bg-red-50 border border-red-200 text-red-600 text-xs font-semibold px-4 py-3 rounded-lg flex items-center gap-2">
+                            <i data-lucide="alert-circle" class="w-4 h-4"></i> <span>Username atau password salah.</span>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-sevpp-charcoal mb-1">Username</label>
+                            <div class="relative">
+                                <i data-lucide="user" class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+                                <input type="text" id="username" class="w-full pl-11 pr-4 py-3 rounded-lg border border-gray-300 bg-white text-sm" placeholder="Masukkan username" required autocomplete="off">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-sevpp-charcoal mb-1">Password</label>
+                            <div class="relative">
+                                <i data-lucide="lock" class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+                                <input type="password" id="password" class="w-full pl-11 pr-12 py-3 rounded-lg border border-gray-300 bg-white text-sm" placeholder="Masukkan password" required>
+                                <button type="button" id="toggle-password" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-sevpp-charcoal">
+                                    <i data-lucide="eye" class="w-4 h-4" id="eye-icon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-sevpp-primary text-white font-bold py-3.5 rounded-lg hover:bg-sevpp-deep transition-colors shadow-md mt-6">
+                            Masuk ke Sistem
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= WRAPPER APLIKASI (Sidebar + Main) ================= -->
+    <div id="app-wrapper" class="hidden w-full h-full flex flex-col md:flex-row relative">
+        
+        <!-- Mobile Sidebar Overlay Backdrop -->
+        <div id="mobile-overlay" onclick="app.toggleMenu()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden transition-opacity"></div>
+
+        <!-- SIDEBAR (Desktop & Mobile Drawer) -->
+        <aside id="sidebar-menu" class="fixed md:relative inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col w-64 bg-white border-r border-gray-200 z-50 h-full">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h1 class="font-heading font-bold text-xl text-sevpp-deep tracking-tight">SEVPP<span class="text-sevpp-gold">.</span></h1>
+                <!-- Close button for mobile -->
+                <button onclick="app.toggleMenu()" class="md:hidden text-gray-500 hover:text-sevpp-primary p-1">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+                <a href="#dashboard" id="nav-dashboard" onclick="app.closeMenuIfMobile()" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-red-50 hover:text-sevpp-primary">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
+                </a>
+                <a href="#daftar" id="nav-daftar" onclick="app.closeMenuIfMobile()" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-red-50 hover:text-sevpp-primary">
+                    <i data-lucide="list" class="w-5 h-5"></i> Daftar QR
+                </a>
+                <a href="#aktivasi" id="nav-aktivasi" onclick="app.closeMenuIfMobile()" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-red-50 hover:text-sevpp-primary">
+                    <i data-lucide="scan-line" class="w-5 h-5"></i> Scan / Aktivasi
+                </a>
+                <a href="#pengaturan" id="nav-pengaturan" onclick="app.closeMenuIfMobile()" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-red-50 hover:text-sevpp-primary">
+                    <i data-lucide="shield-check" class="w-5 h-5"></i> Pengaturan Akun
+                </a>
+            </nav>
+            <div class="p-4 border-t border-gray-200">
+                <button onclick="app.logout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+                    <i data-lucide="log-out" class="w-5 h-5"></i> Keluar Sistem
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT WRAPPER -->
+        <div class="flex-1 flex flex-col h-full overflow-hidden relative">
+            <!-- MOBILE HEADER (Hamburger Menu) -->
+            <header class="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-30">
+                <div class="flex items-center gap-3">
+                    <button onclick="app.toggleMenu()" class="text-sevpp-charcoal hover:text-sevpp-primary p-1 focus:outline-none">
+                        <i data-lucide="menu" class="w-7 h-7"></i>
+                    </button>
+                    <h1 class="font-heading font-bold text-lg text-sevpp-deep tracking-tight pt-1">SEVPP<span class="text-sevpp-gold">.</span></h1>
+                </div>
+            </header>
+
+            <!-- MAIN SCROLLABLE CONTENT -->
+            <main class="flex-1 overflow-y-auto bg-sevpp-soft pb-12" id="main-content">
+                
+                <!-- VIEW: DASHBOARD -->
+                <div id="view-dashboard" class="view-section hidden p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+                    <div class="mb-6">
+                        <h2 class="font-heading text-2xl md:text-3xl text-sevpp-charcoal font-bold">Ringkasan Sistem</h2>
+                        <p class="text-gray-500 text-sm">Pantau ketersediaan stok dan performa scan QR Anda.</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Total Stok QR</p>
+                            <p class="text-3xl font-heading font-bold tabular-nums text-sevpp-charcoal" id="kpi-total">0</p>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">QR Aktif</p>
+                            <p class="text-3xl font-heading font-bold tabular-nums text-status-aktif" id="kpi-aktif">0</p>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Belum Aktif</p>
+                            <p class="text-3xl font-heading font-bold tabular-nums text-gray-400" id="kpi-belum">0</p>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Total Scan</p>
+                            <p class="text-3xl font-heading font-bold tabular-nums text-sevpp-primary" id="kpi-scan">0</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <h3 class="font-heading font-bold text-lg mb-4 text-sevpp-charcoal">Tren Pemindaian (30 Hari)</h3>
+                        <div class="h-64 w-full"><canvas id="scanChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- VIEW: DAFTAR QR -->
+                <div id="view-daftar" class="view-section hidden p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+                    <div class="mb-2">
+                        <h2 class="font-heading text-2xl md:text-3xl text-sevpp-charcoal font-bold">Daftar QR Code</h2>
+                        <p class="text-gray-500 text-sm">Kelola tujuan, status, dan stok seluruh QR fisik Anda.</p>
+                    </div>
+
+                    <!-- Toolbar: Search & Buttons -->
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                        <!-- Search Bar -->
+                        <div class="w-full md:w-96 relative">
+                            <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                            <input type="text" id="search-qr" class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:border-sevpp-primary focus:ring-1 focus:ring-sevpp-primary outline-none text-sm transition-all" placeholder="Cari Kode ID atau Nama Bisnis...">
+                        </div>
+                        <!-- Action Buttons -->
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <button onclick="app.openModal('modal-generate')" class="flex-1 md:flex-none bg-white border border-gray-300 text-sevpp-charcoal hover:bg-gray-50 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                                <i data-lucide="plus" class="w-4 h-4"></i> Buat QR Baru
+                            </button>
+                            <button onclick="window.location.hash='#aktivasi'" class="flex-1 md:flex-none bg-sevpp-primary hover:bg-sevpp-deep text-white px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm">
+                                <i data-lucide="scan-line" class="w-4 h-4"></i> Scan Fisik
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabel Desktop -->
+                    <div class="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    <th class="p-4">Kode ID</th>
+                                    <th class="p-4">Tujuan / Penempatan</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4">Total Pindai</th>
+                                    <th class="p-4 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-desktop" class="divide-y divide-gray-200 text-sm"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Kartu Mobile -->
+                    <div id="list-mobile" class="md:hidden space-y-4"></div>
+                </div>
+
+                <!-- VIEW: AKTIVASI (SCAN) -->
+                <div id="view-aktivasi" class="view-section hidden p-4 md:p-8 max-w-2xl mx-auto space-y-6">
+                    <div class="mb-6">
+                        <h2 class="font-heading text-2xl md:text-3xl text-sevpp-charcoal font-bold">Konfigurasi QR</h2>
+                        <p class="text-gray-500 text-sm">Pindai fisik QR untuk mengaktifkan atau mengubah datanya.</p>
+                    </div>
+
+                    <div id="scanner-container" class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm text-center">
+                        <div id="reader"></div>
+                        <p class="mt-4 text-sm text-gray-500">Arahkan kamera tepat ke QR Code.</p>
+                        <button onclick="window.location.hash='#daftar'" class="mt-6 text-sm font-medium text-gray-500 hover:text-sevpp-primary transition-colors cursor-pointer relative z-10">Batal & Kembali ke Daftar</button>
+                    </div>
+
+                    <div id="form-container" class="hidden bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                            <div>
+                                <h3 class="font-heading font-bold text-lg text-sevpp-charcoal">Data Destinasi</h3>
+                                <p class="text-xs font-mono text-gray-500 mt-1">ID: <span id="form-kode-display" class="font-bold text-sevpp-primary"></span></p>
+                            </div>
+                            <span id="form-badge-status" class="px-3 py-1 rounded-full text-xs font-bold uppercase"></span>
+                        </div>
+                        
+                        <input type="hidden" id="form-kode-val">
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-sevpp-charcoal mb-1">Nama Bisnis / Klien</label>
+                                <input type="text" id="form-nama" class="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-sm" placeholder="Contoh: Toko Kue Sari Rasa">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-sevpp-charcoal mb-1">URL Review Google Maps</label>
+                                <input type="url" id="form-url" class="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-sm" placeholder="https://search.google.com/local/writereview?placeid=...">
+                                <p class="text-[11px] text-gray-500 mt-1">Gunakan URL 'Minta Ulasan' dari Google Business.</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-sevpp-charcoal mb-1">Mode Layar Publik</label>
+                                <select id="form-mode" class="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-sm">
+                                    <option value="langsung">Bypass: Buka Maps Langsung</option>
+                                    <option value="siap_pakai">Interstisial: Tampilkan Saran Ulasan</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-sevpp-charcoal mb-1">Catatan Penempatan (Opsional)</label>
+                                <input type="text" id="form-catatan" class="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-sm" placeholder="Contoh: Ditempel di Kasir Depan">
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 mt-8">
+                            <button onclick="app.cancelForm()" class="flex-1 bg-white border border-gray-300 text-sevpp-charcoal py-3 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors cursor-pointer relative z-10">Batal</button>
+                            <button onclick="app.saveQRData()" class="flex-[2] bg-sevpp-primary text-white py-3 rounded-lg font-semibold text-sm hover:bg-sevpp-deep transition-colors shadow-md cursor-pointer relative z-10">Simpan & Aktifkan</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: PENGATURAN AKUN -->
+                <div id="view-pengaturan" class="view-section hidden p-4 md:p-8 max-w-2xl mx-auto space-y-6">
+                    <div class="mb-6">
+                        <h2 class="font-heading text-2xl md:text-3xl text-sevpp-charcoal font-bold">Keamanan Akun</h2>
+                        <p class="text-gray-500 text-sm">Ganti username dan password Anda untuk menghindari akses tidak sah.</p>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <form id="account-form" onsubmit="app.updateAccount(event)" class="space-y-4">
+                            <div id="account-alert" class="hidden text-xs font-semibold px-4 py-3 rounded-lg flex items-center gap-2 mb-4"></div>
+                            
+                            <div class="pb-6 border-b border-gray-100 mb-4">
+                                <h3 class="text-sm font-bold text-sevpp-charcoal mb-4 uppercase tracking-wider">Verifikasi Data Saat Ini</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-sevpp-charcoal mb-1">Username Lama</label>
+                                        <input type="text" id="acc-old-user" class="w-full px-4 py-3 rounded-lg border border-gray-300 bg-gray-50 text-sm" placeholder="Username saat ini" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-sevpp-charcoal mb-1">Password Lama</label>
+                                        <input type="password" id="acc-old-pass" class="w-full px-4 py-3 rounded-lg border border-gray-300 bg-gray-50 text-sm" placeholder="Password saat ini" required>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h3 class="text-sm font-bold text-sevpp-charcoal mb-4 uppercase tracking-wider">Kredensial Baru</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-sevpp-charcoal mb-1">Username Baru</label>
+                                        <input type="text" id="acc-new-user" class="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-sm" placeholder="(Kosongkan jika tidak diubah)">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-sevpp-charcoal mb-1">Password Baru</label>
+                                        <input type="password" id="acc-new-pass" class="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-sm" placeholder="(Kosongkan jika tidak diubah)">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="pt-4">
+                                <button type="submit" class="w-full bg-sevpp-charcoal text-white py-3.5 rounded-lg font-bold text-sm hover:bg-black transition-colors shadow-md cursor-pointer relative z-10 flex items-center justify-center gap-2">
+                                    <i data-lucide="save" class="w-4 h-4"></i> Simpan Keamanan Baru
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- ================= VIEW: PUBLIK PELANGGAN (Bebas Login) ================= -->
+    <div id="view-publik" class="view-section hidden min-h-screen w-full bg-gray-50 flex items-center justify-center p-4 absolute top-0 left-0 z-50">
+        <div class="w-full max-w-sm bg-white p-8 rounded-2xl border border-gray-200 shadow-md text-center">
+            <h1 id="pub-title" class="font-heading font-bold text-2xl text-sevpp-primary mb-2">SEVPP<span class="text-sevpp-gold">.</span></h1>
+            <p id="pub-desc" class="text-gray-500 text-sm mb-6">Memproses destinasi...</p>
+            <div id="pub-actions"></div>
+        </div>
+    </div>
+
+    <!-- ================= MODALS & OVERLAYS ================= -->
+
+    <!-- Modal Generate QR -->
+    <div id="modal-generate" class="fixed inset-0 modal-overlay z-[60] hidden flex-col items-center justify-center p-4 opacity-0 transition-opacity">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm transform scale-95 transition-transform duration-200" id="modal-generate-content">
+            <h3 class="font-heading font-bold text-lg text-sevpp-charcoal mb-2">Buat Stok QR Baru</h3>
+            <p class="text-sm text-gray-500 mb-6">Masukkan jumlah QR kosong yang ingin dibuat (Maksimal 100 per proses).</p>
+            
+            <input type="number" id="gen-amount" min="1" max="100" value="10" class="w-full px-4 py-4 rounded-xl border-2 border-gray-200 bg-gray-50 text-center font-heading font-bold text-2xl text-sevpp-charcoal mb-6 focus:border-sevpp-primary focus:bg-white transition-colors">
+            
+            <div class="flex gap-3">
+                <button onclick="app.closeModal('modal-generate')" class="flex-1 bg-white border border-gray-300 text-sevpp-charcoal font-semibold py-3 rounded-lg hover:bg-gray-50 transition-colors">Batal</button>
+                <button onclick="app.generateQR()" class="flex-[2] bg-sevpp-primary text-white font-semibold py-3 rounded-lg hover:bg-sevpp-deep transition-colors shadow-md">Generate QR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Lihat QR -->
+    <div id="modal-qr" class="fixed inset-0 modal-overlay z-[60] hidden flex-col items-center justify-center p-4 opacity-0 transition-opacity">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center transform scale-95 transition-transform duration-200" id="modal-qr-content">
+            <h3 class="font-heading font-bold text-lg text-sevpp-charcoal mb-4">Kode ID: <span id="modal-qr-code" class="text-sevpp-primary"></span></h3>
+            <div class="flex justify-center bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
+                <div id="modal-qr-canvas"></div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="app.closeModal('modal-qr')" class="flex-1 bg-white border border-gray-300 text-sevpp-charcoal font-semibold py-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer relative z-10">Tutup</button>
+                <button onclick="app.downloadQR()" class="flex-[2] bg-sevpp-primary hover:bg-sevpp-deep text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer relative z-10 flex items-center justify-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i> Download PNG
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Kelola Rute (Ubah Status) -->
+    <div id="modal-manage" class="fixed inset-0 modal-overlay z-[60] hidden flex-col items-center justify-center p-4 opacity-0 transition-opacity">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm transform scale-95 transition-transform duration-200" id="modal-manage-content">
+            <h3 class="font-heading font-bold text-lg text-sevpp-charcoal mb-1">Kelola Pengaturan QR</h3>
+            <p class="text-sm font-mono text-gray-500 mb-6">ID: <span id="manage-code" class="font-bold text-sevpp-primary"></span></p>
+            
+            <p id="manage-desc" class="text-sm text-gray-600 mb-6 bg-gray-50 p-3 rounded-lg border border-gray-200"></p>
+            
+            <div id="manage-actions" class="flex flex-col gap-3"></div>
+            
+            <button onclick="app.closeModal('modal-manage')" class="w-full mt-3 bg-white border border-gray-300 text-sevpp-charcoal font-semibold py-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer relative z-10">Batal</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] flex flex-col gap-2 pointer-events-none w-max max-w-[90vw]"></div>
+
+    <script>
+        const app = (() => {
+            // --- 1. DATA LAYER ---
+            const DB_KEY = 'sevpp_dyn_v6';
+            const LOGS_KEY = 'sevpp_logs_v6';
+            const ADMIN_KEY = 'sevpp_admin_v1';
+            
+            let db = JSON.parse(localStorage.getItem(DB_KEY)) || [];
+            let logs = JSON.parse(localStorage.getItem(LOGS_KEY)) || [];
+            let adminData = JSON.parse(localStorage.getItem(ADMIN_KEY));
+
+            // Default Admin Data
+            if (!adminData) {
+                adminData = { u: 'usep', p: '24' };
+                localStorage.setItem(ADMIN_KEY, JSON.stringify(adminData));
+            }
+
+            if (db.length === 0) {
+                for (let i = 1; i <= 50; i++) {
+                    let code = Math.random().toString(36).substring(2, 10).toUpperCase();
+                    let isAct = i <= 10;
+                    let scanCnt = isAct ? Math.floor(Math.random() * 120) + 15 : 0;
+                    
+                    db.push({
+                        kode: code,
+                        status: isAct ? "aktif" : "belum",
+                        namaBisnis: isAct ? (i <= 5 ? "Toko Kue Sari Rasa" : "Kopi Senja") : "",
+                        urlReview: isAct ? "https://search.google.com/local/writereview?placeid=ChIJdummy" : "",
+                        mode: isAct ? (i%2===0 ? "siap_pakai" : "langsung") : "langsung",
+                        catatan: isAct ? (i%2===0 ? "Stiker Kasir" : "Stand Etalase") : "",
+                        jumlahScan: scanCnt
+                    });
+                    if(isAct) {
+                        for(let j=0; j<scanCnt/4; j++) {
+                            let d = new Date(); d.setDate(d.getDate() - Math.floor(Math.random() * 30));
+                            logs.push({ date: d.toISOString().split('T')[0] });
+                        }
+                    }
+                }
+                saveDB();
+            }
+
+            function saveDB() {
+                localStorage.setItem(DB_KEY, JSON.stringify(db));
+                localStorage.setItem(LOGS_KEY, JSON.stringify(logs));
+            }
+
+            // --- 2. AUTHENTICATION LAYER ---
+            function checkAuth() {
+                return sessionStorage.getItem('sevpp_auth') === 'true';
+            }
+
+            function login(e) {
+                e.preventDefault();
+                const u = document.getElementById('username').value;
+                const p = document.getElementById('password').value;
+                const err = document.getElementById('login-error');
+                
+                if (u === adminData.u && p === adminData.p) {
+                    sessionStorage.setItem('sevpp_auth', 'true');
+                    err.classList.add('hidden');
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                    
+                    document.getElementById('view-login').classList.add('hidden');
+                    document.getElementById('app-wrapper').classList.remove('hidden');
+                    
+                    if(!window.location.hash || window.location.hash === '') {
+                        window.location.hash = '#dashboard';
+                    }
+                    initRouter();
+                } else {
+                    err.classList.remove('hidden');
+                }
+            }
+
+            function logout() {
+                sessionStorage.removeItem('sevpp_auth');
+                if(scanner) { scanner.clear().catch(e => console.warn(e)); scanner = null; }
+                document.getElementById('app-wrapper').classList.add('hidden');
+                document.getElementById('view-login').classList.remove('hidden');
+                window.location.hash = '';
+            }
+
+            document.getElementById('toggle-password').addEventListener('click', function() {
+                const passInput = document.getElementById('password');
+                const eyeIcon = document.getElementById('eye-icon');
+                if (passInput.type === 'password') {
+                    passInput.type = 'text'; eyeIcon.setAttribute('data-lucide', 'eye-off');
+                } else {
+                    passInput.type = 'password'; eyeIcon.setAttribute('data-lucide', 'eye');
+                }
+                lucide.createIcons();
+            });
+
+            document.getElementById('login-form').addEventListener('submit', login);
+
+            // --- 3. UI STATE & ROUTING ---
+            let scanner = null;
+            let myChart = null;
+            let currentManageCode = null;
+
+            // Mobile Menu Toggle
+            function toggleMenu() {
+                const sidebar = document.getElementById('sidebar-menu');
+                const overlay = document.getElementById('mobile-overlay');
+                
+                sidebar.classList.toggle('-translate-x-full');
+                if (overlay.classList.contains('hidden')) {
+                    overlay.classList.remove('hidden');
+                } else {
+                    setTimeout(() => overlay.classList.add('hidden'), 300); // delay hidden for exit animation
+                }
+            }
+
+            function closeMenuIfMobile() {
+                if (window.innerWidth < 768) {
+                    const sidebar = document.getElementById('sidebar-menu');
+                    const overlay = document.getElementById('mobile-overlay');
+                    sidebar.classList.add('-translate-x-full');
+                    setTimeout(() => overlay.classList.add('hidden'), 300);
+                }
+            }
+
+            function initRouter() {
+                const hash = window.location.hash;
+                
+                if (hash.startsWith('#/r/')) {
+                    document.getElementById('app-wrapper').classList.add('hidden');
+                    document.getElementById('view-login').classList.add('hidden');
+                    document.getElementById('view-publik').classList.remove('hidden');
+                    renderPublic(hash.split('#/r/')[1]);
+                    return;
+                }
+
+                if (!checkAuth()) {
+                    document.getElementById('app-wrapper').classList.add('hidden');
+                    document.getElementById('view-publik').classList.add('hidden');
+                    document.getElementById('view-login').classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('view-login').classList.add('hidden');
+                document.getElementById('view-publik').classList.add('hidden');
+                document.getElementById('app-wrapper').classList.remove('hidden');
+                
+                const baseRoute = hash ? hash.split('?')[0] : '#dashboard';
+                
+                document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('.nav-item').forEach(el => { el.classList.remove('bg-red-50', 'text-sevpp-primary'); el.classList.add('text-gray-600'); });
+
+                if(scanner && !hash.includes('#aktivasi')) {
+                    scanner.clear().catch(e => console.warn(e));
+                    scanner = null;
+                }
+
+                const viewId = baseRoute.replace('#', 'view-');
+                const navId = baseRoute.replace('#', 'nav-');
+
+                const viewEl = document.getElementById(viewId);
+                if (viewEl) viewEl.classList.remove('hidden');
+                
+                const navEl = document.getElementById(navId);
+                if (navEl) { navEl.classList.remove('text-gray-600'); navEl.classList.add('bg-red-50', 'text-sevpp-primary'); }
+
+                if (baseRoute === '#dashboard') renderDashboard();
+                if (baseRoute === '#daftar') renderList();
+                if (baseRoute === '#aktivasi') {
+                    const params = new URLSearchParams(hash.split('?')[1]);
+                    const code = params.get('code');
+                    code ? openForm(code) : startScanner();
+                }
+                
+                lucide.createIcons();
+            }
+
+            // --- 4. DASHBOARD ---
+            function renderDashboard() {
+                const aktif = db.filter(q => q.status === 'aktif').length;
+                const belum = db.filter(q => q.status === 'belum').length;
+                const totalScan = db.reduce((sum, q) => sum + q.jumlahScan, 0);
+
+                document.getElementById('kpi-total').innerText = db.length;
+                document.getElementById('kpi-aktif').innerText = aktif;
+                document.getElementById('kpi-belum').innerText = belum;
+                document.getElementById('kpi-scan').innerText = totalScan;
+
+                const ctx = document.getElementById('scanChart').getContext('2d');
+                if (myChart) myChart.destroy();
+                let dates = [], counts = [];
+                for(let i=29; i>=0; i--) {
+                    let d = new Date(); d.setDate(d.getDate() - i);
+                    dates.push(d.getDate() + '/' + (d.getMonth()+1));
+                    counts.push(logs.filter(l => l.date === d.toISOString().split('T')[0]).length);
+                }
+                myChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [{ label: 'Scan', data: counts, borderColor: '#C8102E', backgroundColor: 'rgba(200, 16, 46, 0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { border: { display: false }, ticks: { precision: 0 } } } }
+                });
+            }
+
+            // --- 5. LIST & SEARCH & GENERATOR ---
+            
+            // Search Listener
+            document.getElementById('search-qr').addEventListener('input', (e) => {
+                renderList(e.target.value);
+            });
+
+            function renderList(query = '') {
+                const tbody = document.getElementById('table-desktop');
+                const mobDiv = document.getElementById('list-mobile');
+                tbody.innerHTML = ''; mobDiv.innerHTML = '';
+
+                const q = query.toLowerCase();
+                const filteredDb = db.filter(item => 
+                    item.kode.toLowerCase().includes(q) || 
+                    (item.namaBisnis && item.namaBisnis.toLowerCase().includes(q))
+                );
+
+                const getBadge = (status) => {
+                    const map = {
+                        'aktif': '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wider bg-green-100 text-status-aktif uppercase">Aktif</span>',
+                        'belum': '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wider bg-gray-100 text-status-belum uppercase">Belum</span>',
+                        'nonaktif': '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wider bg-red-100 text-status-nonaktif uppercase">Nonaktif</span>'
+                    };
+                    return map[status] || status;
+                };
+
+                if(filteredDb.length === 0) {
+                    const emptyMsg = `<tr><td colspan="5" class="p-8 text-center text-gray-500">Tidak ada QR yang cocok dengan pencarian.</td></tr>`;
+                    tbody.innerHTML = emptyMsg;
+                    mobDiv.innerHTML = `<div class="p-8 text-center text-gray-500 bg-white rounded-xl border border-gray-200">Tidak ada data ditemukan.</div>`;
+                    return;
+                }
+
+                // Render with reverse order to show newest first
+                [...filteredDb].reverse().forEach(q => {
+                    let tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="p-4 font-mono font-bold text-sevpp-charcoal">${q.kode}</td>
+                        <td class="p-4"><p class="font-semibold text-sevpp-charcoal">${q.namaBisnis || 'Belum Dialokasikan'}</p><p class="text-xs text-gray-500">${q.catatan || '-'}</p></td>
+                        <td class="p-4">${getBadge(q.status)}</td>
+                        <td class="p-4 tabular-nums font-semibold">${q.jumlahScan}</td>
+                        <td class="p-4 text-right space-x-2">
+                            <button onclick="app.showQR('${q.kode}')" class="px-3 py-2 bg-white border border-gray-300 rounded text-sm font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer relative z-10" title="Lihat & Download QR"><i data-lucide="qr-code" class="w-4 h-4"></i></button>
+                            <button onclick="app.manageQR('${q.kode}')" class="px-3 py-2 bg-sevpp-primary text-white rounded text-sm font-semibold hover:bg-sevpp-deep cursor-pointer relative z-10" title="Kelola Pengaturan"><i data-lucide="settings-2" class="w-4 h-4"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+
+                    let card = document.createElement('div');
+                    card.className = 'bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden';
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <p class="text-[11px] font-mono font-bold text-gray-400 mb-1">ID: ${q.kode}</p>
+                                <p class="font-heading font-bold text-sevpp-charcoal text-[16px] leading-tight">${q.namaBisnis || 'Belum Dialokasikan'}</p>
+                                ${q.catatan ? `<p class="text-xs text-gray-500 mt-1">${q.catatan}</p>` : ''}
+                            </div>
+                            <div>${getBadge(q.status)}</div>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-4 font-medium"><span class="text-sevpp-primary font-bold">${q.jumlahScan}</span> kali discan</p>
+                        
+                        <div class="flex gap-2 pt-4 border-t border-gray-100 relative z-10 pointer-events-auto">
+                            <button onclick="app.showQR('${q.kode}')" class="flex-1 bg-gray-50 border border-gray-200 text-gray-700 py-3 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 relative z-20"><i data-lucide="qr-code" class="w-4 h-4"></i> QR Code</button>
+                            <button onclick="app.manageQR('${q.kode}')" class="flex-1 bg-sevpp-primary text-white py-3 rounded-lg text-sm font-semibold hover:bg-sevpp-deep transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 relative z-20">Kelola Status</button>
+                        </div>
+                    `;
+                    mobDiv.appendChild(card);
+                });
+                lucide.createIcons();
+            }
+
+            function generateQR() {
+                const amount = parseInt(document.getElementById('gen-amount').value);
+                if(isNaN(amount) || amount < 1 || amount > 100) return showToast('Jumlah pembuatan harus antara 1 hingga 100!');
+                
+                for(let i=0; i<amount; i++) {
+                    let code = Math.random().toString(36).substring(2, 10).toUpperCase();
+                    db.push({
+                        kode: code,
+                        status: 'belum',
+                        namaBisnis: '',
+                        urlReview: '',
+                        mode: 'langsung',
+                        catatan: '',
+                        jumlahScan: 0
+                    });
+                }
+                saveDB();
+                closeModal('modal-generate');
+                renderList(document.getElementById('search-qr').value);
+                showToast(`${amount} QR Code baru berhasil dibuat!`);
+            }
+
+            // --- 6. MODALS ---
+            function openModal(id) {
+                const overlay = document.getElementById(id);
+                const content = document.getElementById(id + '-content');
+                overlay.classList.remove('hidden');
+                overlay.style.display = 'flex';
+                setTimeout(() => {
+                    overlay.classList.remove('opacity-0');
+                    content.classList.remove('scale-95');
+                }, 10);
+            }
+
+            function closeModal(id) {
+                const overlay = document.getElementById(id);
+                const content = document.getElementById(id + '-content');
+                overlay.classList.add('opacity-0');
+                content.classList.add('scale-95');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                    overlay.style.display = 'none';
+                }, 200);
+            }
+
+            function showQR(code) {
+                document.getElementById('modal-qr-code').innerText = code;
+                document.getElementById('modal-qr-canvas').innerHTML = '';
+                new QRCode(document.getElementById('modal-qr-canvas'), {
+                    text: window.location.origin + window.location.pathname + '#/r/' + code,
+                    width: 200, height: 200, colorDark: "#8B0A1F", colorLight: "#ffffff"
+                });
+                openModal('modal-qr');
+            }
+
+            function downloadQR() {
+                const code = document.getElementById('modal-qr-code').innerText;
+                const canvas = document.querySelector('#modal-qr-canvas canvas');
+                const img = document.querySelector('#modal-qr-canvas img');
+
+                let dataUrl = canvas ? canvas.toDataURL("image/png") : (img ? img.src : "");
+
+                if (dataUrl) {
+                    const link = document.createElement('a');
+                    link.href = dataUrl;
+                    link.download = `SEVPP-QR-${code}.png`;
+                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                    showToast(`File QR ${code} berhasil diunduh!`);
+                }
+            }
+
+            function manageQR(code) {
+                currentManageCode = code;
+                const qr = db.find(q => q.kode === code);
+                document.getElementById('manage-code').innerText = code;
+                
+                const desc = document.getElementById('manage-desc');
+                const actions = document.getElementById('manage-actions');
+                
+                if (qr.status === 'belum') {
+                    desc.innerHTML = '<span class="font-semibold text-gray-700">QR Kosong (Stok).</span><br>Gunakan form aktivasi untuk menghubungkannya ke bisnis.';
+                    actions.innerHTML = `<button onclick="window.location.hash='#aktivasi?code=${code}'; app.closeModal('modal-manage')" class="w-full bg-sevpp-primary text-white font-semibold py-3 rounded-lg hover:bg-sevpp-deep transition-colors cursor-pointer">Buka Form Aktivasi</button>`;
+                } else if (qr.status === 'aktif') {
+                    desc.innerHTML = `Terhubung secara aktif ke: <br><span class="font-bold text-sevpp-charcoal text-base">${qr.namaBisnis}</span>`;
+                    actions.innerHTML = `
+                        <button onclick="window.location.hash='#aktivasi?code=${code}'; app.closeModal('modal-manage')" class="w-full bg-sevpp-primary text-white font-semibold py-3 rounded-lg hover:bg-sevpp-deep transition-colors cursor-pointer">Ubah Pengaturan Rute</button>
+                        <button onclick="app.executeStatus('nonaktif')" class="w-full bg-white border border-status-nonaktif text-status-nonaktif font-semibold py-3 rounded-lg hover:bg-red-50 transition-colors cursor-pointer">Nonaktifkan Tautan</button>
+                    `;
+                } else {
+                    desc.innerHTML = `Sedang dinonaktifkan. <br>Tujuan sebelumnya: <span class="font-bold text-gray-600">${qr.namaBisnis}</span>`;
+                    actions.innerHTML = `
+                        <button onclick="app.executeStatus('aktif')" class="w-full bg-status-aktif text-white font-semibold py-3 rounded-lg hover:bg-green-700 transition-colors cursor-pointer">Aktifkan Kembali</button>
+                        <button onclick="window.location.hash='#aktivasi?code=${code}'; app.closeModal('modal-manage')" class="w-full bg-white border border-sevpp-primary text-sevpp-primary font-semibold py-3 rounded-lg hover:bg-red-50 transition-colors cursor-pointer">Ubah Data Tujuan</button>
+                    `;
+                }
+                openModal('modal-manage');
+            }
+
+            function executeStatus(newStatus) {
+                const qr = db.find(q => q.kode === currentManageCode);
+                if(qr) {
+                    qr.status = newStatus; saveDB(); closeModal('modal-manage');
+                    renderList(document.getElementById('search-qr').value);
+                    renderDashboard();
+                    showToast(`Status diubah menjadi ${newStatus.toUpperCase()}`);
+                }
+            }
+
+            function showToast(msg) {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = 'bg-sevpp-charcoal text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-xl toast-animate flex items-center gap-2';
+                toast.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5 text-green-400"></i> <span>${msg}</span>`;
+                container.appendChild(toast);
+                lucide.createIcons();
+                setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(()=>toast.remove(), 300); }, 3000);
+            }
+
+            // --- FUNGSI UPDATE AKUN ---
+            function updateAccount(e) {
+                e.preventDefault();
+                const oldU = document.getElementById('acc-old-user').value;
+                const oldP = document.getElementById('acc-old-pass').value;
+                const newU = document.getElementById('acc-new-user').value;
+                const newP = document.getElementById('acc-new-pass').value;
+                const alertBox = document.getElementById('account-alert');
+                
+                if (oldU !== adminData.u || oldP !== adminData.p) {
+                    alertBox.className = 'bg-red-50 border border-red-200 text-red-600 text-xs font-semibold px-4 py-3 rounded-lg flex items-center gap-2 mb-4';
+                    alertBox.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4"></i> <span>Username atau Password lama salah. Perubahan ditolak.</span>';
+                    alertBox.classList.remove('hidden');
+                    lucide.createIcons();
+                    return;
+                }
+                
+                if (!newU && !newP) {
+                    alertBox.className = 'bg-blue-50 border border-blue-200 text-blue-600 text-xs font-semibold px-4 py-3 rounded-lg flex items-center gap-2 mb-4';
+                    alertBox.innerHTML = '<i data-lucide="info" class="w-4 h-4"></i> <span>Tidak ada username atau password baru yang dimasukkan.</span>';
+                    alertBox.classList.remove('hidden');
+                    lucide.createIcons();
+                    return;
+                }
+                
+                if (newU) adminData.u = newU;
+                if (newP) adminData.p = newP;
+                
+                localStorage.setItem(ADMIN_KEY, JSON.stringify(adminData));
+                
+                alertBox.classList.add('hidden');
+                document.getElementById('acc-old-user').value = '';
+                document.getElementById('acc-old-pass').value = '';
+                document.getElementById('acc-new-user').value = '';
+                document.getElementById('acc-new-pass').value = '';
+                
+                showToast('Kredensial keamanan berhasil diperbarui!');
+            }
+
+            // --- 7. SCANNER & FORM ---
+            function startScanner() {
+                document.getElementById('scanner-container').classList.remove('hidden');
+                document.getElementById('form-container').classList.add('hidden');
+                if (!scanner) {
+                    scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+                    scanner.render((decoded) => {
+                        const code = decoded.split('#/r/').pop();
+                        scanner.clear(); scanner = null;
+                        openForm(code);
+                    }, () => {}); 
+                }
+            }
+
+            function openForm(code) {
+                const qr = db.find(q => q.kode === code);
+                document.getElementById('scanner-container').classList.add('hidden');
+                document.getElementById('form-container').classList.remove('hidden');
+                
+                if (qr) {
+                    document.getElementById('form-kode-val').value = qr.kode;
+                    document.getElementById('form-kode-display').innerText = qr.kode;
+                    document.getElementById('form-nama').value = qr.namaBisnis;
+                    document.getElementById('form-url').value = qr.urlReview;
+                    document.getElementById('form-mode').value = qr.mode;
+                    document.getElementById('form-catatan').value = qr.catatan;
+                    
+                    const badge = document.getElementById('form-badge-status');
+                    badge.innerText = qr.status.toUpperCase();
+                    badge.className = `px-3 py-1 rounded-full text-[10px] font-bold uppercase ${qr.status === 'aktif' ? 'bg-green-100 text-status-aktif' : qr.status === 'nonaktif' ? 'bg-red-100 text-status-nonaktif' : 'bg-gray-100 text-status-belum'}`;
+                } else {
+                    showToast('QR tidak terdaftar di sistem ini.');
+                    window.location.hash = '#aktivasi';
+                }
+            }
+
+            function saveQRData() {
+                const code = document.getElementById('form-kode-val').value;
+                const url = document.getElementById('form-url').value;
+                if(!url) return showToast('URL Maps tidak boleh kosong!');
+
+                let qr = db.find(q => q.kode === code);
+                qr.namaBisnis = document.getElementById('form-nama').value || 'Tanpa Nama';
+                qr.urlReview = url;
+                qr.mode = document.getElementById('form-mode').value;
+                qr.catatan = document.getElementById('form-catatan').value;
+                qr.status = 'aktif';
+                
+                saveDB();
+                showToast('Pengaturan Rute Berhasil Disimpan!');
+                window.location.hash = '#daftar';
+            }
+
+            function cancelForm() {
+                window.location.hash = '#aktivasi'; startScanner();
+            }
+
+            // --- 8. PUBLIC PAGE (END-USER) ---
+            function renderPublic(code) {
+                const qr = db.find(q => q.kode === code);
+                const title = document.getElementById('pub-title');
+                const desc = document.getElementById('pub-desc');
+                const actions = document.getElementById('pub-actions');
+                
+                if(!qr) {
+                    title.innerText = "Error 404";
+                    desc.innerText = "QR Code ini tidak dikenali oleh sistem jaringan SEVPP.";
+                    return;
+                }
+
+                if (qr.status === 'aktif') {
+                    qr.jumlahScan++;
+                    logs.push({ date: new Date().toISOString().split('T')[0] });
+                    saveDB();
+
+                    if (qr.mode === 'langsung') {
+                        desc.innerText = `Menghubungkan Anda ke ${qr.namaBisnis}...`;
+                        actions.innerHTML = `<div class="w-10 h-10 border-4 border-gray-100 border-t-sevpp-primary rounded-full animate-spin mx-auto"></div>`;
+                        setTimeout(() => window.location.href = qr.urlReview, 1000);
+                    } else {
+                        title.innerText = qr.namaBisnis;
+                        desc.innerText = "Bantu tingkatkan layanan kami dengan ulasan otentik Anda di Google Maps.";
+                        actions.innerHTML = `
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 text-left">
+                                <p class="text-xs font-bold text-gray-400 uppercase mb-2 tracking-wide">Saran Teks (Bisa Diedit Nanti)</p>
+                                <p class="text-sm font-medium text-sevpp-charcoal italic">"Pelayanan sangat cepat dan tempatnya nyaman. Sangat direkomendasikan!"</p>
+                            </div>
+                            <button onclick="alert('Teks berhasil disalin ke Papan Klip (Clipboard)!'); window.location.href='${qr.urlReview}'" class="w-full bg-sevpp-primary text-white font-bold py-4 rounded-xl hover:bg-sevpp-deep transition-colors shadow-md flex items-center justify-center gap-2 mb-3">
+                                <i data-lucide="copy" class="w-5 h-5"></i> Salin Teks & Beri Ulasan
+                            </button>
+                            <a href="${qr.urlReview}" class="block w-full bg-white border border-gray-300 text-gray-600 font-bold py-4 rounded-xl hover:bg-gray-50 transition-colors text-sm">
+                                Tulis Ulasan Secara Manual
+                            </a>
+                        `;
+                        lucide.createIcons();
+                    }
+                } else if (qr.status === 'belum') {
+                    title.innerText = "QR Baru";
+                    desc.innerText = "QR Code ini belum diinisialisasi oleh pihak pengelola. Silakan hubungi staff.";
+                } else {
+                    title.innerText = "Sedang Ditangguhkan";
+                    desc.innerText = "Tautan untuk titik ini sedang tidak diaktifkan oleh pemilik bisnis.";
+                }
+            }
+
+            window.addEventListener('hashchange', initRouter);
+            window.addEventListener('DOMContentLoaded', () => {
+                lucide.createIcons();
+                initRouter();
+            });
+
+            return { 
+                showQR, downloadQR, manageQR, executeStatus, openModal, closeModal, 
+                saveQRData, cancelForm, logout, toggleMenu, closeMenuIfMobile, generateQR, updateAccount 
+            };
+        })();
+    </script>
+</body>
+</html>
